@@ -73,7 +73,8 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(128))
     #TODO 364: In order to complete a relationship with a table that is detailed below (a one-to-many relationship for users and gif collections), you'll need to add a field to this User model. (Check out the TODOs for models below for more!)
     # Remember, the best way to do so is to add the field, save your code, and then create and run a migration!
-    collection = db.relationship("PersonalGifCollection",backref='User')
+    collections = db.Column(db.String)
+    #collection = db.relationship("PersonalGifCollection",backref='User')
 
     @property
     def password(self):
@@ -271,8 +272,6 @@ def get_or_create_collection(name, current_user, gif_list=[]):
 
         return collection
 
-
-
 ########################
 #### View functions ####
 ########################
@@ -327,8 +326,12 @@ def secret():
 @app.route('/', methods=['GET', 'POST'])
 def index():
     # TODO 364: Edit this view function, which has a provided return statement, so that the GifSearchForm can be rendered.
+    form = GifSearchForm()
     # If the form is submitted successfully:
+    if form.validate_on_submit():
     # invoke get_or_create_search_term on the form input and redirect to the function corresponding to the path /gifs_searched/<search_term> in order to see the results of the gif search. (Just a couple lines of code!)
+        search_term = get_or_create_search_term(form.search.data)
+        return redirect(url_for(search_results,search_term=search_term.term))
 
     # HINT: invoking url_for with a named argument will send additional data. e.g. url_for('artist_info',artist='solange') would send the data 'solange' to a route /artist_info/<artist>
     return render_template('index.html',form=form)
