@@ -55,11 +55,9 @@ login_manager.init_app(app) # set up login manager
 # NOTE: Remember that setting up association tables in this course always has the same structure! Just make sure you refer to the correct tables and columns!
 
 # TODO 364: Set up association Table between search terms and GIFs (you can call it anything you want, we suggest 'tags' or 'search_gifs').
-
 tags = db.Table('tags',db.Column('search_id',db.Integer, db.ForeignKey('searchTerms.id')),db.Column('gifs_id',db.Integer, db.ForeignKey('gifs.id')))
 
 # TODO 364: Set up association Table between GIFs and collections prepared by user (you can call it anything you want. We suggest: user_collection)
-
 user_collection = db.Table('user_collection',db.Column('gif_id', db.Integer, db.ForeignKey('gifs.id')),db.Column('collection_id',db.Integer, db.ForeignKey('personalGifCollections.id')))
 
 ## User-related Models
@@ -73,8 +71,6 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(128))
     #TODO 364: In order to complete a relationship with a table that is detailed below (a one-to-many relationship for users and gif collections), you'll need to add a field to this User model. (Check out the TODOs for models below for more!)
     # Remember, the best way to do so is to add the field, save your code, and then create and run a migration!
-
-    #collections = db.Column(db.String)
     collection = db.relationship("PersonalGifCollection",backref='User')
 
     @property
@@ -106,7 +102,7 @@ class Gif(db.Model):
     __tablename__ = "gifs"
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(128))
-    embedURL = db.Column(db.String(256), unique=True)
+    embedURL = db.Column(db.String(256))
 
     # TODO 364: Define a __repr__ method for the Gif model that shows the title and the URL of the gif
     def __repr__(self):
@@ -130,16 +126,14 @@ class PersonalGifCollection(db.Model):
     gifs = db.relationship("Gif",secondary=user_collection,backref=db.backref('personalGifCollections',lazy='dynamic'),lazy='dynamic')
 
 class SearchTerm(db.Model):
-    pass
     # TODO 364: Add code for the SearchTerm model such that it has the following fields:
     # id (Integer, primary key)
     # term (String, up to 32 characters, unique) -- You want to ensure the database cannot save non-unique search terms
-    # This model should have a many to many relationship with gifs (a search will generate many gifs to save, and one gif could potentially appear in many searches)
     __tablename__ = "searchTerms"
     id = db.Column(db.Integer, primary_key=True)
     term = db.Column(db.String(32), unique=True)
 
-    # MANY TO MANY
+    # This model should have a many to many relationship with gifs (a search will generate many gifs to save, and one gif could potentially appear in many searches)
     gifs = db.relationship("Gif",secondary=tags,backref=db.backref('searchTerms',lazy='dynamic'),lazy='dynamic')
 
     # TODO 364: Define a __repr__ method for this model class that returns the term string
@@ -209,7 +203,6 @@ def get_gif_by_id(id):
 
 def get_or_create_gif(title, url):
     """Always returns a Gif instance"""
-    pass # Replace with code
     # TODO 364: This function should get or create a Gif instance. Determining whether the gif already exists in the database should be based on the gif's title.
     gif = Gif.query.filter_by(title=title, embedURL=url).first()
     if gif:
@@ -224,7 +217,6 @@ def get_or_create_search_term(term):
     """Always returns a SearchTerm instance"""
     # TODO 364: This function should return the search term instance if it already exists.
     searchTerm = SearchTerm.query.filter_by(term=term).first()
-
     if searchTerm:
         return searchTerm
 
@@ -252,7 +244,6 @@ def get_or_create_search_term(term):
 
 def get_or_create_collection(name, current_user, gif_list=[]):
     """Always returns a PersonalGifCollection instance"""
-    #pass # Replace with code
 
     # TODO 364: This function should get or create a personal gif collection. Uniqueness of the gif collection should be determined by the name of the collection and the id of the logged in user.
     collection = PersonalGifCollection.query.filter_by(name=name,user_id=current_user.id).first()
