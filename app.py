@@ -73,8 +73,9 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(128))
     #TODO 364: In order to complete a relationship with a table that is detailed below (a one-to-many relationship for users and gif collections), you'll need to add a field to this User model. (Check out the TODOs for models below for more!)
     # Remember, the best way to do so is to add the field, save your code, and then create and run a migration!
-    collections = db.Column(db.String)
-    #collection = db.relationship("PersonalGifCollection",backref='User')
+
+    #collections = db.Column(db.String)
+    collection = db.relationship("PersonalGifCollection",backref='User')
 
     @property
     def password(self):
@@ -104,7 +105,7 @@ class Gif(db.Model):
     # embedURL (String up to 256 characters)
     __tablename__ = "gifs"
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(128),unique=True)
+    title = db.Column(db.String(128))
     embedURL = db.Column(db.String(256), unique=True)
 
     # TODO 364: Define a __repr__ method for the Gif model that shows the title and the URL of the gif
@@ -119,9 +120,10 @@ class PersonalGifCollection(db.Model):
     __tablename__ = "personalGifCollections"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), unique=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
 
     # This model should have a one-to-many relationship with the User model (one user, many personal collections of gifs with different names -- say, "Happy Gif Collection" or "Sad Gif Collection")
-    collection = db.relationship("PersonalGifCollection",backref='User')
+    #collection = db.relationship("PersonalGifCollection",backref='User')
 
     # This model should also have a many to many relationship with the Gif model (one gif might be in many personal collections, one personal collection could have many gifs in it).
     collections = db.relationship("Gif",secondary=user_collection,backref=db.backref('personalGifCollections',lazy='dynamic'),lazy='dynamic')
@@ -137,7 +139,7 @@ class SearchTerm(db.Model):
     term = db.Column(db.String(32), unique=True)
 
     # MANY TO MANY
-    tags = db.relationship("Gif",secondary=tags,backref=db.backref('searchTerms',lazy='dynamic'),lazy='dynamic')
+    gifs = db.relationship("Gif",secondary=tags,backref=db.backref('searchTerms',lazy='dynamic'),lazy='dynamic')
 
     # TODO 364: Define a __repr__ method for this model class that returns the term string
     def __repr__(self):
@@ -208,7 +210,7 @@ def get_or_create_gif(title, url):
     """Always returns a Gif instance"""
     pass # Replace with code
     # TODO 364: This function should get or create a Gif instance. Determining whether the gif already exists in the database should be based on the gif's title.
-    gif = Gif.query.filter_by(title=title, url=embedURL).first()
+    gif = Gif.query.filter_by(title=title, embedURL=url).first()
     if gif:
         return gif
     else:
@@ -227,7 +229,7 @@ def get_or_create_search_term(term):
 
     # If it does not exist in the database yet, this function should create a new SearchTerm instance.
     else:
-        searchTerm = Search(term=term)
+        searchTerm = SearchTerm(term=term)
     # This function should invoke the get_gifs_from_giphy function to get a list of gif data from Giphy.
         gifs = get_gifs_from_giphy(searchTerm)
 
@@ -237,12 +239,12 @@ def get_or_create_search_term(term):
             url = g["embed_url"]
             gif = get_or_create_gif(title, url)
 
-            searchTerm.tags.append(gif)
+            searchTerm.gifs.append(gif)
 
     # If a new search term were created, it should finally be added and committed to the database.
     # And the SearchTerm instance that was got or created should be returned.
         db.session.add(searchTerm)
-        db.commit()
+        db.session.commit()
 
         return searchTerm
     # HINT: I recommend using print statements as you work through building this function and use it in invocations in view functions to ensure it works as you expect!
@@ -252,7 +254,7 @@ def get_or_create_collection(name, current_user, gif_list=[]):
     #pass # Replace with code
 
     # TODO 364: This function should get or create a personal gif collection. Uniqueness of the gif collection should be determined by the name of the collection and the id of the logged in user.
-    collection = PersonalGifCollection.query.filter_by(name=name).first()
+    collection = PersonalGifCollection.query.filter_by(name=name,user_id=current_user.id).first()
     # HOW TO CHECK USER
 
     # In other words, based on the input to this function, if there exists a collection with the input name, associated with the current user, then this function should return that PersonalGifCollection instance.
@@ -262,7 +264,7 @@ def get_or_create_collection(name, current_user, gif_list=[]):
     # However, if no such collection exists, a new PersonalGifCollection instance should be created, and each Gif in the gif_list input should be appended to it (remember, there exists a many to many relationship between Gifs and PersonalGifCollections).
     # HINT: You can think of a PersonalGifCollection like a Playlist, and Gifs like Songs.
     else:
-        collection = PersonalGifCollection(name=name)
+        collection = PersonalGifCollection(name=name,user_id=current_user.id)
         # ATTACH TO USER?
         for gif in gif_list:
             collection.collections.append(gif)
@@ -331,7 +333,7 @@ def index():
     if form.validate_on_submit():
     # invoke get_or_create_search_term on the form input and redirect to the function corresponding to the path /gifs_searched/<search_term> in order to see the results of the gif search. (Just a couple lines of code!)
         search_term = get_or_create_search_term(form.search.data)
-        return redirect(url_for(search_results,search_term=search_term.term))
+        return redirect(url_for('search_results',search_term=search_term.term))
 
     # HINT: invoking url_for with a named argument will send additional data. e.g. url_for('artist_info',artist='solange') would send the data 'solange' to a route /artist_info/<artist>
     return render_template('index.html',form=form)
@@ -349,6 +351,8 @@ def search_terms():
     # TODO 364: Edit this view function so it renders search_terms.html.
     # That template should show a list of all the search terms that have been searched so far. Each one should link to the gifs that resulted from that search.
     # HINT: All you have to do is make the right query in this view function and send the right data to the template! You can complete this in two lines. Check out the template for more hints!
+    all_terms = SearchTerm.query.all()
+    return render_template("search_terms.html",all_terms=all_terms) # IDK IF THIS IS RIGHT COME BACK TO THIS
 
 # Provided
 @app.route('/all_gifs')
@@ -364,6 +368,11 @@ def create_collection():
     choices = [(g.id, g.title) for g in gifs]
     form.gif_picks.choices = choices
     # TODO 364: If the form validates on submit, get the list of the gif ids that were selected from the form. Use the get_gif_by_id function to create a list of Gif objects.  Then, use the information available to you at this point in the function (e.g. the list of gif objects, the current_user) to invoke the get_or_create_collection function, and redirect to the page that shows a list of all your collections.
+    if form.validate_on_submit():
+        collection_gifs = [get_gif_by_id(gif_tup[0]) for gif_tup in choices]
+        collection = get_or_create_collection(name, current_user, collection_gifs)
+        return render_template(url_for("collections"))
+
     # If the form is not validated, this view function should simply render the create_collection.html template and send the form to the template.
 
 
@@ -372,6 +381,8 @@ def create_collection():
 def collections():
     pass # Replace with code
     # TODO 364: This view function should render the collections.html template so that only the current user's personal gif collection links will render in that template. Make sure to examine the template so that you send it the correct data!
+    collections = PersonalGifCollection.query.filter_by(user_id=current_user.id).all()
+    return render_template("collections.html",collections=collections)
 
 # Provided
 @app.route('/collection/<id_num>')
