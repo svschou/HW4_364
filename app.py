@@ -268,7 +268,7 @@ def get_or_create_collection(name, current_user, gif_list=[]):
         collection = PersonalGifCollection(name=name,user_id=current_user.id)
         # ATTACH TO USER?
         for gif in gif_list:
-            collection.collections.append(gif)
+            collection.gifs.append(gif)
 
         db.session.add(collection)
         db.session.commit()
