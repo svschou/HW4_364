@@ -126,7 +126,8 @@ class PersonalGifCollection(db.Model):
     #collection = db.relationship("PersonalGifCollection",backref='User')
 
     # This model should also have a many to many relationship with the Gif model (one gif might be in many personal collections, one personal collection could have many gifs in it).
-    collections = db.relationship("Gif",secondary=user_collection,backref=db.backref('personalGifCollections',lazy='dynamic'),lazy='dynamic')
+    # changed name to gifs bc of line 396
+    gifs = db.relationship("Gif",secondary=user_collection,backref=db.backref('personalGifCollections',lazy='dynamic'),lazy='dynamic')
 
 class SearchTerm(db.Model):
     pass
@@ -365,21 +366,25 @@ def all_gifs():
 def create_collection():
     form = CollectionCreateForm()
     gifs = Gif.query.all()
-    choices = [(g.id, g.title) for g in gifs]
+    choices = [(str(g.id), g.title) for g in gifs]
     form.gif_picks.choices = choices
     # TODO 364: If the form validates on submit, get the list of the gif ids that were selected from the form. Use the get_gif_by_id function to create a list of Gif objects.  Then, use the information available to you at this point in the function (e.g. the list of gif objects, the current_user) to invoke the get_or_create_collection function, and redirect to the page that shows a list of all your collections.
+    print("RELOADED")
+    print(form.gif_picks.data)
     if form.validate_on_submit():
-        collection_gifs = [get_gif_by_id(gif_tup[0]) for gif_tup in choices]
-        collection = get_or_create_collection(name, current_user, collection_gifs)
-        return render_template(url_for("collections"))
+        print("SUBMITTED")
+        collection_gifs = [get_gif_by_id(pick) for pick in form.gif_picks.data]
+        collection = get_or_create_collection(form.name.data, current_user, collection_gifs)
+        return redirect(url_for("collections"))
 
     # If the form is not validated, this view function should simply render the create_collection.html template and send the form to the template.
+    return render_template("create_collection.html",form=form)
 
 
 @app.route('/collections',methods=["GET","POST"])
 @login_required
 def collections():
-    pass # Replace with code
+    #pass # Replace with code
     # TODO 364: This view function should render the collections.html template so that only the current user's personal gif collection links will render in that template. Make sure to examine the template so that you send it the correct data!
     collections = PersonalGifCollection.query.filter_by(user_id=current_user.id).all()
     return render_template("collections.html",collections=collections)
